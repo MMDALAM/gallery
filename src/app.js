@@ -1,11 +1,14 @@
 const express = require("express");
 const app = express();
 const http = require("http");
+const mongoose = require("mongoose");
 const { PORT } = process.env;
 const { DATABASE } = process.env;
 const expressLayouts = require("express-ejs-layouts");
 const createError = require("http-errors");
 const session = require("express-session");
+const path = require("path");
+const { AllRouters } = require("./routers/router");
 
 module.exports = class Application {
   constructor() {
@@ -24,9 +27,8 @@ module.exports = class Application {
   setupExpress() {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
-
     app.use(express.static("public"));
-    app.set("view engine", config.layout.view_engine);
+    app.set("view engine", "ejs");
     app.set("views", path.resolve("./resource/views"));
     app.use(expressLayouts);
     app.set("layout extractScripts", true);

@@ -1,7 +1,6 @@
 exports.home = async (req, res, next) => {
   try {
-    const text = "asdasdasdasd";
-    return res.json({ text });
+    return res.render("home/home");
   } catch (err) {
     next(err);
   }

@@ -1,55 +1,57 @@
-const JWT = require("jsonwebtoken");
-const createError = require("http-errors");
-const { productModel } = require("../models/product");
-const randomString = require("randomstring");
+const multer = require("multer");
+const path = require("path");
 const fs = require("fs");
-const { default: mongoose } = require("mongoose");
+const createError = require("http-errors");
 
-function jwtSign(userID) {
-  return new Promise(async (resolve, reject) => {
-    const payload = {
-      userID: userID,
-    };
-    const options = {
-      expiresIn: "6d",
-    };
-    JWT.sign(payload, "secret_key", options, (err, token) => {
-      if (err) reject(createError.Unauthorized("خطا در شناسایی توکن"));
-      resolve(token);
-    });
-  });
+function directory(req) {
+  const data = new Date();
+  const year = data.getFullYear().toString();
+  const month = data.getMonth().toString();
+  const day = data.getDay().toString();
+  const directory = path.join(
+    __dirname,
+    "..",
+    "..",
+    "public",
+    "uploads",
+    year,
+    month,
+    day
+  );
+  req.body.fileUploadPath = path.join("uploads", year, month, day);
+  fs.mkdirSync(directory, { recursive: true });
+  return directory;
 }
 
-async function uniqueSlug() {
-  let string = randomString.generate({ length: 6 });
-  let product = await productModel.findOne({ slug: string });
-  if (product) return uniqueSlug();
-  return string;
-}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (file?.originalname) {
+      const filePath = directory(req);
+      return cb(null, filePath);
+    }
+    cb(null, null);
+  },
+  filename: (req, file, cb) => {
+    if (file.originalname) {
+      const extName = path.extname(file.originalname);
+      const fileName = String(new Date().getTime() + extName);
+      req.body.fileName = fileName;
+      return cb(null, fileName);
+    }
+    cb(null, null);
+  },
+});
 
-async function deleteFilePublic(files) {
-  const file = files?.map((file) => file.path);
-  if (file) {
-    file.forEach((image) => {
-      if (fs.existsSync(image)) fs.unlinkSync(image);
-    });
+function fileFilter(req, file, cb) {
+  const extName = path.extname(file.originalname);
+  const mimetypes = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  if (mimetypes.includes(extName)) {
+    return cb(null, true);
   }
+  return cb(createError.BadRequest("فرمت ارسال شده تصویر صحیح نمیباشد"));
 }
 
-function isValidMongoId(id) {
-  if (!mongoose.Types.ObjectId.isValid(id))
-    throw createError.BadRequest("ایدی ارسال شده صحیح نیمباشد");
-  return true;
-}
+const imgMaxSize = 1 * 1000 * 1000;
+const uploadImg = multer({ storage, fileFilter, limits: { imgMaxSize } });
 
-async function comparePass(password, hash) {
-  return await bcrypt.compareSync(password, hash);
-}
-
-module.exports = {
-  jwtSign,
-  uniqueSlug,
-  deleteFilePublic,
-  isValidMongoId,
-  comparePass,
-};
+module.exports = { uploadImg };
